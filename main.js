@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ARButton } from './ARButton.js';
 
 let scene, camera, renderer, controller;
 let projectiles = [];
@@ -11,6 +10,8 @@ let shootSound, hitSound;
 
 function init() {
     scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
     const listener = new THREE.AudioListener();
     camera.add(listener);
@@ -58,13 +59,12 @@ function init() {
 
     gun.position.z = -0.5;
     gun.position.y = -0.5;
-    camera.add(gun);
     scene.add(camera);
 
-    const button = ARButton.createButton(renderer);
-    document.body.appendChild(button);
+    window.addEventListener('click', startAR);
 
     controller = renderer.xr.getController(0);
+    controller.add(gun);
     controller.addEventListener('select', shoot);
     scene.add(controller);
 
@@ -180,6 +180,22 @@ function render() {
     }
 
     renderer.render(scene, camera);
+}
+
+async function startAR() {
+    window.removeEventListener('click', startAR);
+
+    const sessionInit = {
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: document.querySelector('#ui-container') }
+    };
+
+    try {
+        const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
+        renderer.xr.setSession(session);
+    } catch (e) {
+        console.error("Failed to start AR session:", e);
+    }
 }
 
 function createExplosion(position) {
