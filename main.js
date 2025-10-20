@@ -6,7 +6,6 @@ let ghosts = [];
 let particles = [];
 let score = 0;
 const clock = new THREE.Clock();
-let shootSound, hitSound;
 
 function init() {
     scene = new THREE.Scene();
@@ -14,25 +13,8 @@ function init() {
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-    const listener = new THREE.AudioListener();
-    camera.add(listener);
-
-    const audioLoader = new THREE.AudioLoader();
-    shootSound = new THREE.Audio(listener);
-    audioLoader.load('sounds/shoot.wav', function(buffer) {
-        shootSound.setBuffer(buffer);
-        shootSound.setVolume(0.5);
-    });
-
-    hitSound = new THREE.Audio(listener);
-    audioLoader.load('sounds/hit.wav', function(buffer) {
-        hitSound.setBuffer(buffer);
-        hitSound.setVolume(0.5);
-    });
-
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 0);
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
@@ -84,13 +66,6 @@ function shoot() {
 
     projectiles.push(projectile);
     scene.add(projectile);
-
-    if (shootSound) {
-        if (shootSound.isPlaying) {
-            shootSound.stop();
-        }
-        shootSound.play();
-    }
 }
 
 function createGhost() {
@@ -157,12 +132,6 @@ function render() {
                 ghosts.splice(j, 1);
                 score++;
                 document.getElementById('score').textContent = `Score: ${score}`;
-                if (hitSound) {
-                    if (hitSound.isPlaying) {
-                        hitSound.stop();
-                    }
-                    hitSound.play();
-                }
                 break;
             }
         }
