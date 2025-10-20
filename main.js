@@ -10,6 +10,7 @@ let shootSound, hitSound;
 
 function init() {
     scene = new THREE.Scene();
+    scene.background = null;
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
