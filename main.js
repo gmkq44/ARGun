@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-let scene, camera, renderer, controller;
+let scene, camera, renderer, controller, gun;
 let projectiles = [];
 let ghosts = [];
 let particles = [];
@@ -29,9 +29,6 @@ function init() {
         hitSound.setVolume(0.5);
     });
 
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-    camera.add(listener);
-
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
@@ -41,7 +38,7 @@ function init() {
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    const gun = new THREE.Group();
+    gun = new THREE.Group();
     const barrel = new THREE.Mesh(
         new THREE.CylinderGeometry(0.05, 0.05, 0.4, 32),
         new THREE.MeshStandardMaterial({ color: 0x333333 })
@@ -62,11 +59,6 @@ function init() {
     scene.add(camera);
 
     window.addEventListener('click', startAR);
-
-    controller = renderer.xr.getController(0);
-    controller.add(gun);
-    controller.addEventListener('select', shoot);
-    scene.add(controller);
 
     renderer.setAnimationLoop(render);
 }
@@ -193,6 +185,13 @@ async function startAR() {
     try {
         const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
         renderer.xr.setSession(session);
+
+        controller = renderer.xr.getController(0);
+        controller.add(gun);
+        controller.addEventListener('select', shoot);
+        scene.add(controller);
+
+        setInterval(createGhost, 2000);
     } catch (e) {
         console.error("Failed to start AR session:", e);
     }
@@ -217,4 +216,3 @@ function createExplosion(position) {
 }
 
 init();
-setInterval(createGhost, 2000);
