@@ -31,6 +31,7 @@ function init() {
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
@@ -39,20 +40,29 @@ function init() {
     scene.add(light);
 
     gun = new THREE.Group();
-    const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.05, 0.05, 0.4, 32),
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.1, 0.4),
         new THREE.MeshStandardMaterial({ color: 0x333333 })
     );
-    barrel.position.z = -0.2;
-    barrel.rotation.x = Math.PI / 2;
-    gun.add(barrel);
+    body.position.z = -0.1;
+    gun.add(body);
 
     const grip = new THREE.Mesh(
         new THREE.BoxGeometry(0.1, 0.3, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x666666 })
+        new THREE.MeshStandardMaterial({ color: 0x555555 })
     );
-    grip.position.y = -0.15;
+    grip.position.y = -0.1;
+    grip.rotation.x = -Math.PI / 4;
     gun.add(grip);
+
+    const sight = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 0.02, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0x999999 })
+    );
+    sight.position.y = 0.06;
+    sight.position.z = -0.28;
+    gun.add(sight);
 
     gun.position.z = -0.5;
     gun.position.y = -0.5;
@@ -87,34 +97,31 @@ function shoot() {
 function createGhost() {
     const ghost = new THREE.Group();
 
-    // Head
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.1, 0.6, 32, 1, true),
+        new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        })
+    );
+    ghost.add(body);
+
     const head = new THREE.Mesh(
         new THREE.SphereGeometry(0.2, 32, 32),
         new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
     );
-    head.position.y = 0.2;
+    head.position.y = 0.3;
     ghost.add(head);
 
-    // Body
-    const bodyGeometry = new THREE.CylinderGeometry(0.2, 0.1, 0.4, 32, 1, true);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.8,
-        side: THREE.DoubleSide
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = -0.1;
-    ghost.add(body);
-
-    // Eyes
     const eye = new THREE.Mesh(
         new THREE.CircleGeometry(0.05, 32),
         new THREE.MeshBasicMaterial({ color: 0x000000 })
     );
-    eye.position.z = 0.2;
+    eye.position.z = 0.18;
     eye.position.x = -0.08;
-    eye.position.y = 0.2;
+    eye.position.y = 0.35;
     ghost.add(eye);
 
     const eye2 = eye.clone();
@@ -124,16 +131,22 @@ function createGhost() {
     ghost.position.x = (Math.random() - 0.5) * 4;
     ghost.position.y = (Math.random() - 0.5) * 2;
     ghost.position.z = - (Math.random() * 5 + 2);
+    ghost.userData.bobOffset = Math.random() * Math.PI * 2;
     scene.add(ghost);
     ghosts.push(ghost);
 }
 
 function render() {
     const delta = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime();
+
+    ghosts.forEach(ghost => {
+        ghost.position.y += Math.sin(elapsedTime * 2 + ghost.userData.bobOffset) * 0.001;
+    });
 
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const projectile = projectiles[i];
-        projectile.position.addScaledVector(projectile.velocity, delta * 3);
+        projectile.position.addScaledVector(projectile.velocity, delta * 5);
 
         for (let j = ghosts.length - 1; j >= 0; j--) {
             const ghost = ghosts[j];
@@ -186,12 +199,16 @@ async function startAR() {
         const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
         renderer.xr.setSession(session);
 
+        document.getElementById('start-message').style.display = 'none';
+        document.getElementById('score').style.display = 'block';
+        document.getElementById('crosshair').style.display = 'block';
+
         controller = renderer.xr.getController(0);
         controller.add(gun);
         controller.addEventListener('select', shoot);
         scene.add(controller);
 
-        setInterval(createGhost, 2000);
+        setInterval(createGhost, 1000);
     } catch (e) {
         console.error("Failed to start AR session:", e);
     }
