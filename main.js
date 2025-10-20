@@ -70,8 +70,6 @@ function init() {
     scene.add(camera);
 
     window.addEventListener('click', startAR);
-
-    renderer.setAnimationLoop(render);
 }
 
 function shoot() {
@@ -191,6 +189,11 @@ function render() {
 async function startAR() {
     window.removeEventListener('click', startAR);
 
+    if (!navigator.xr) {
+        alert("WebXR is not supported by this browser.");
+        return;
+    }
+
     const sessionInit = {
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.querySelector('#ui-container') }
@@ -209,8 +212,10 @@ async function startAR() {
         controller.addEventListener('select', shoot);
         scene.add(controller);
 
+        renderer.setAnimationLoop(render);
         setInterval(createGhost, 1000);
     } catch (e) {
+        alert("Failed to start AR session: " + e.message);
         console.error("Failed to start AR session:", e);
     }
 }
