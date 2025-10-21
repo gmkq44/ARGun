@@ -9,6 +9,7 @@ let score = 0;
 let ghosts = [];
 const bullets = [];
 const clock = new THREE.Clock();
+let ghostSpawnerInterval;
 
 const scoreElement = document.getElementById('score');
 const startMessage = document.getElementById('start-message');
@@ -35,20 +36,20 @@ function init() {
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    document.body.appendChild(ARButton.createButton(renderer, {
+    const arButton = ARButton.createButton(renderer, {
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.body }
-    }));
+    });
+    document.body.appendChild(arButton);
+    arButton.style.display = 'none';
 
     startMessage.addEventListener('click', () => {
-        startMessage.style.display = 'none';
-        ui.style.display = 'block';
-        fireButton.style.display = 'block';
-        if (renderer.xr.isPresenting) {
-            spawnGhosts();
-        }
+        arButton.click();
     });
+
+    renderer.xr.addEventListener('sessionstart', onSessionStart);
+    renderer.xr.addEventListener('sessionend', onSessionEnd);
 
     controller = renderer.xr.getController(0);
     controller.addEventListener('select', onSelect);
@@ -57,6 +58,30 @@ function init() {
     fireButton.addEventListener('click', onSelect);
 
     window.addEventListener('resize', onWindowResize, false);
+}
+
+function onSessionStart() {
+    startMessage.style.display = 'none';
+    ui.style.display = 'block';
+    fireButton.style.display = 'block';
+    spawnGhosts();
+}
+
+function onSessionEnd() {
+    startMessage.textContent = "Tap to Restart";
+    startMessage.style.display = 'block';
+    ui.style.display = 'none';
+    fireButton.style.display = 'none';
+
+    if (ghostSpawnerInterval) {
+        clearInterval(ghostSpawnerInterval);
+    }
+    ghosts.forEach(ghost => scene.remove(ghost));
+    ghosts.length = 0;
+    bullets.forEach(bullet => scene.remove(bullet));
+    bullets.length = 0;
+    score = 0;
+    scoreElement.textContent = `Score: ${score}`;
 }
 
 function onWindowResize() {
@@ -83,7 +108,7 @@ function spawnGhosts() {
     const textureLoader = new THREE.TextureLoader();
     const ghostTexture = textureLoader.load('ghost.png');
 
-    setInterval(() => {
+    ghostSpawnerInterval = setInterval(() => {
         if (renderer.xr.isPresenting) {
             const ghost = new THREE.Mesh(
                 new THREE.PlaneGeometry(0.2, 0.2),
@@ -101,7 +126,6 @@ function spawnGhosts() {
         }
     }, 2000);
 }
-
 
 function animate() {
     renderer.setAnimationLoop(render);
