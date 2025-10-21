@@ -36,17 +36,15 @@ function init() {
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
+    // Use the ARButton directly and make it visible. Hide the custom start message.
     const arButton = ARButton.createButton(renderer, {
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.body }
     });
     document.body.appendChild(arButton);
-    arButton.style.display = 'none';
+    startMessage.style.display = 'none';
 
-    startMessage.addEventListener('click', () => {
-        arButton.click();
-    });
 
     renderer.xr.addEventListener('sessionstart', onSessionStart);
     renderer.xr.addEventListener('sessionend', onSessionEnd);
@@ -61,18 +59,19 @@ function init() {
 }
 
 function onSessionStart() {
-    startMessage.style.display = 'none';
+    // Show our custom game UI once the session starts
     ui.style.display = 'block';
     fireButton.style.display = 'block';
     spawnGhosts();
 }
 
 function onSessionEnd() {
+    // Show a restart message when the session ends
     startMessage.textContent = "Tap to Restart";
-    startMessage.style.display = 'block';
     ui.style.display = 'none';
     fireButton.style.display = 'none';
 
+    // Clean up the scene
     if (ghostSpawnerInterval) {
         clearInterval(ghostSpawnerInterval);
     }
