@@ -4,17 +4,19 @@
 		<title>AR Ghost Shooter</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-		<link type="text/css" rel="stylesheet" href="style.css">
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+            }
+            #container {
+                width: 100vw;
+                height: 100vh;
+            }
+        </style>
 	</head>
 	<body>
-        <!-- The ARButton will create its own button, which will be the entry point -->
 		<div id="container"></div>
-		<div id="ui">
-			<div id="score">Score: 0</div>
-			<div id="crosshair"></div>
-		</div>
-		<button id="fire-button">Fire</button>
-
 		<script type="importmap">
 			{
 				"imports": {

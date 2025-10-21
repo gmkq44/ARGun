@@ -2,91 +2,62 @@
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-// Global error listener
-window.addEventListener('error', function(event) {
-    alert(`UNCAUGHT ERROR: ${event.message}\nFile: ${event.filename}\nLine: ${event.lineno}`);
-});
-
 let container;
 let camera, scene, renderer;
 let controller;
-let score = 0;
+let score = 0; // We'll keep score internally for now
 let ghosts = [];
 const bullets = [];
 const clock = new THREE.Clock();
 let ghostSpawnerInterval;
 
-// UI Elements
-const ui = document.getElementById('ui');
-const scoreElement = document.getElementById('score');
-const fireButton = document.getElementById('fire-button');
-
 init();
+animate();
 
 function init() {
     container = document.getElementById('container');
 
-    // Scene setup
+    // Scene
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-    // Renderer setup
+    // Camera
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+    scene.add(camera); // Add camera to the scene
+
+    // 3D Crosshair
+    const crosshairGeometry = new THREE.RingGeometry(0.01, 0.015, 32);
+    const crosshairMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true });
+    const crosshair = new THREE.Mesh(crosshairGeometry, crosshairMaterial);
+    crosshair.position.z = -0.5; // Position it in front of the camera
+    camera.add(crosshair); // Attach crosshair to the camera
+
+    // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Lighting
+    // Light
     const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    // AR Button - Make DOM Overlay an OPTIONAL feature
-    const arButton = ARButton.createButton(renderer, {
-        optionalFeatures: ['dom-overlay'], // Changed from requiredFeatures
-        domOverlay: { root: document.body }
-    });
-    document.body.appendChild(arButton);
+    // AR Button (most basic version)
+    document.body.appendChild(ARButton.createButton(renderer));
 
-    // Controller setup for input
+    // Controller for tap-to-shoot
     controller = renderer.xr.getController(0);
-    controller.addEventListener('select', onSelect);
+    controller.addEventListener('select', onSelect); // 'select' is the tap event
     scene.add(controller);
 
-    // Fire button event listener
-    fireButton.addEventListener('click', onSelect);
-
-    // Start the render loop
-    renderer.setAnimationLoop(render);
-
-    // Event listeners for session start/end
-    renderer.xr.addEventListener('sessionstart', onSessionStart);
-    renderer.xr.addEventListener('sessionend', onSessionEnd);
+    // Start ghost spawning once the session starts
+    renderer.xr.addEventListener('sessionstart', spawnGhosts);
+    renderer.xr.addEventListener('sessionend', () => {
+        if (ghostSpawnerInterval) clearInterval(ghostSpawnerInterval);
+    });
 
     window.addEventListener('resize', onWindowResize);
-}
-
-function onSessionStart() {
-    ui.style.display = 'block';
-    fireButton.style.display = 'block';
-    spawnGhosts();
-}
-
-function onSessionEnd() {
-    ui.style.display = 'none';
-    fireButton.style.display = 'none';
-
-    // Cleanup logic
-    if (ghostSpawnerInterval) {
-        clearInterval(ghostSpawnerInterval);
-    }
-    ghosts.forEach(ghost => scene.remove(ghost));
-    ghosts.length = 0;
-    bullets.forEach(bullet => scene.remove(bullet));
-    bullets.length = 0;
-    score = 0;
-    scoreElement.textContent = `Score: ${score}`;
 }
 
 function onWindowResize() {
@@ -103,11 +74,12 @@ function onSelect() {
         new THREE.MeshBasicMaterial({ color: 0xffff00 })
     );
 
-    bullet.position.copy(controller.position);
-    const direction = new THREE.Vector3();
-    controller.getWorldDirection(direction);
-    bullet.velocity = direction.multiplyScalar(-5);
+    // The controller's position/rotation is the user's device
+    bullet.position.setFromMatrixPosition(controller.matrixWorld);
+    bullet.quaternion.setFromRotationMatrix(controller.matrixWorld);
 
+    // Move the bullet forward from the controller's direction
+    bullet.velocity = new THREE.Vector3(0, 0, -1).applyQuaternion(bullet.quaternion).multiplyScalar(5);
     scene.add(bullet);
     bullets.push(bullet);
 }
@@ -123,14 +95,20 @@ function spawnGhosts() {
                 new THREE.MeshBasicMaterial({ map: ghostTexture, transparent: true })
             );
 
+            // Position ghost in front of the user
             const spawnPosition = new THREE.Vector3(
                 (Math.random() - 0.5) * 4,
-                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2 + 1, // Spawn a bit higher
                 -2 - Math.random() * 2
             );
 
+            // Get camera position and apply offset
+            const cameraPosition = new THREE.Vector3();
+            camera.getWorldPosition(cameraPosition);
+            spawnPosition.add(cameraPosition);
+
             ghost.position.copy(spawnPosition);
-            ghost.lookAt(camera.position);
+            ghost.lookAt(cameraPosition); // Make ghost face the camera
 
             scene.add(ghost);
             ghosts.push(ghost);
@@ -138,28 +116,36 @@ function spawnGhosts() {
     }, 2000);
 }
 
-function render(timestamp, frame) {
+function animate() {
+    renderer.setAnimationLoop(render);
+}
+
+function render() {
     const delta = clock.getDelta();
 
     if (renderer.xr.isPresenting) {
+        // Update bullets
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
             bullet.position.add(bullet.velocity.clone().multiplyScalar(delta));
 
+            // Remove distant bullets
             if (bullet.position.length() > 20) {
                 scene.remove(bullet);
                 bullets.splice(i, 1);
+                continue;
             }
 
+            // Check for collision
             for (let j = ghosts.length - 1; j >= 0; j--) {
                 const ghost = ghosts[j];
-                if (bullet.position.distanceTo(ghost.position) < 0.1) {
+                if (bullet.position.distanceTo(ghost.position) < 0.15) {
                     scene.remove(bullet);
                     bullets.splice(i, 1);
                     scene.remove(ghost);
                     ghosts.splice(j, 1);
                     score++;
-                    scoreElement.textContent = `Score: ${score}`;
+                    // In the future, we can add a 3D score display here
                     break;
                 }
             }
