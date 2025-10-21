@@ -3,7 +3,6 @@
 window.addEventListener('error', function(event) {
     console.error('UNCAUGHT ERROR:', event.message, event.filename, event.lineno, event.colno, event.error);
 });
-console.log("AR Ghost Shooter: Script loaded.");
 
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
@@ -22,84 +21,65 @@ const ui = document.getElementById('ui');
 const scoreElement = document.getElementById('score');
 const fireButton = document.getElementById('fire-button');
 
-console.log("AR Ghost Shooter: Starting init()...");
 init();
-console.log("AR Ghost Shooter: init() finished.");
-
 
 function init() {
-    try {
-        container = document.getElementById('container');
-        console.log("AR Ghost Shooter: Container element found.");
+    container = document.getElementById('container');
 
-        // Scene setup
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-        console.log("AR Ghost Shooter: Scene and camera initialized.");
+    // Scene setup
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-        // Renderer setup
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.xr.enabled = true;
-        container.appendChild(renderer.domElement);
-        console.log("AR Ghost Shooter: WebGL Renderer initialized and XR enabled.");
+    // Renderer setup
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    container.appendChild(renderer.domElement);
 
-        // Lighting
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-        light.position.set(0.5, 1, 0.25);
-        scene.add(light);
-        console.log("AR Ghost Shooter: Lighting added to scene.");
+    // Lighting
+    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+    light.position.set(0.5, 1, 0.25);
+    scene.add(light);
 
-        // AR Button
-        console.log("AR Ghost Shooter: Creating ARButton...");
-        const arButton = ARButton.createButton(renderer, {
-            requiredFeatures: ['hit-test', 'dom-overlay'],
-            domOverlay: { root: document.body }
-        });
-        document.body.appendChild(arButton);
-        console.log("AR Ghost Shooter: ARButton created and appended to body.");
+    // AR Button - Removed 'hit-test' from requiredFeatures
+    const arButton = ARButton.createButton(renderer, {
+        requiredFeatures: ['dom-overlay'],
+        domOverlay: { root: document.body }
+    });
+    document.body.appendChild(arButton);
 
-        // Controller setup for input
-        controller = renderer.xr.getController(0);
-        controller.addEventListener('select', onSelect);
-        scene.add(controller);
-        console.log("AR Ghost Shooter: XR Controller initialized.");
+    // Controller setup for input
+    controller = renderer.xr.getController(0);
+    controller.addEventListener('select', onSelect);
+    scene.add(controller);
 
-        // Fire button event listener
-        fireButton.addEventListener('click', onSelect);
+    // Fire button event listener
+    fireButton.addEventListener('click', onSelect);
 
-        // Start the render loop
-        renderer.setAnimationLoop(render);
-        console.log("AR Ghost Shooter: Animation loop started.");
+    // Start the render loop
+    renderer.setAnimationLoop(render);
 
-        // Event listeners for session start/end
-        renderer.xr.addEventListener('sessionstart', onSessionStart);
-        renderer.xr.addEventListener('sessionend', onSessionEnd);
-        console.log("AR Ghost Shooter: Session event listeners added.");
+    // Event listeners for session start/end
+    renderer.xr.addEventListener('sessionstart', onSessionStart);
+    renderer.xr.addEventListener('sessionend', onSessionEnd);
 
-        window.addEventListener('resize', onWindowResize);
-    } catch (e) {
-        console.error("AR Ghost Shooter: Error in init() function:", e);
-    }
+    window.addEventListener('resize', onWindowResize);
 }
 
 function onSessionStart() {
-    console.log("AR Ghost Shooter: XR session started!");
     ui.style.display = 'block';
     fireButton.style.display = 'block';
     spawnGhosts();
 }
 
 function onSessionEnd() {
-    console.log("AR Ghost Shooter: XR session ended.");
     ui.style.display = 'none';
     fireButton.style.display = 'none';
 
     // Cleanup logic
     if (ghostSpawnerInterval) {
         clearInterval(ghostSpawnerInterval);
-        console.log("AR Ghost Shooter: Ghost spawner cleared.");
     }
     ghosts.forEach(ghost => scene.remove(ghost));
     ghosts.length = 0;
@@ -107,22 +87,16 @@ function onSessionEnd() {
     bullets.length = 0;
     score = 0;
     scoreElement.textContent = `Score: ${score}`;
-    console.log("AR Ghost Shooter: Scene cleaned up.");
 }
 
 function onWindowResize() {
-    console.log("AR Ghost Shooter: Window resized.");
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function onSelect() {
-    if (!renderer.xr.isPresenting) {
-        console.log("AR Ghost Shooter: onSelect called, but not in AR session. Ignoring.");
-        return;
-    }
-    console.log("AR Ghost Shooter: onSelect fired (shoot action).");
+    if (!renderer.xr.isPresenting) return;
 
     const bullet = new THREE.Mesh(
         new THREE.SphereGeometry(0.01, 8, 8),
@@ -139,10 +113,8 @@ function onSelect() {
 }
 
 function spawnGhosts() {
-    console.log("AR Ghost Shooter: Starting ghost spawner...");
     const textureLoader = new THREE.TextureLoader();
     const ghostTexture = textureLoader.load('ghost.png');
-    console.log("AR Ghost Shooter: Ghost texture loaded.");
 
     ghostSpawnerInterval = setInterval(() => {
         if (renderer.xr.isPresenting) {
@@ -162,24 +134,14 @@ function spawnGhosts() {
 
             scene.add(ghost);
             ghosts.push(ghost);
-            console.log("AR Ghost Shooter: Spawned a ghost.");
         }
     }, 2000);
 }
 
-let frameCount = 0;
 function render(timestamp, frame) {
-    if (frameCount === 0) {
-        console.log("AR Ghost Shooter: First render frame.");
-    }
-    frameCount++;
-
     const delta = clock.getDelta();
 
     if (renderer.xr.isPresenting) {
-        if(frameCount % 300 === 0) { // Log every 5 seconds approx
-            console.log(`AR Ghost Shooter: Rendering frame ${frameCount} in AR mode.`);
-        }
         // Update bullet positions and check for collisions
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
@@ -205,9 +167,5 @@ function render(timestamp, frame) {
         }
     }
 
-    try {
-        renderer.render(scene, camera);
-    } catch (e) {
-        console.error("AR Ghost Shooter: Error in render loop:", e);
-    }
+    renderer.render(scene, camera);
 }
