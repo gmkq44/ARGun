@@ -1,20 +1,42 @@
 body {
     margin: 0;
+    font-family: Arial, sans-serif;
+    color: white;
     overflow: hidden;
 }
-canvas {
-    display: block;
-}
-#score {
+
+#container {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 24px;
-    color: white;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 10px;
-    border-radius: 5px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
 }
+
+#start-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2em;
+    text-align: center;
+    cursor: pointer;
+    z-index: 2;
+}
+
+#ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: none; /* Hidden by default */
+    z-index: 2;
+}
+
+#score {
+    font-size: 1.5em;
+}
+
 #crosshair {
     position: absolute;
     top: 50%;
@@ -25,14 +47,18 @@ canvas {
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
-#start-message {
+
+#fire-button {
     position: absolute;
-    top: 50%;
+    bottom: 20px;
     left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 32px;
-    color: white;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 20px;
-    border-radius: 10px;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.5);
+    border: none;
+    cursor: pointer;
+    display: none; /* Hidden by default */
+    z-index: 2;
 }
