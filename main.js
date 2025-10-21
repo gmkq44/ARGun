@@ -1,11 +1,11 @@
 
-// Add a global error listener to catch any uncaught exceptions
-window.addEventListener('error', function(event) {
-    console.error('UNCAUGHT ERROR:', event.message, event.filename, event.lineno, event.colno, event.error);
-});
-
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
+
+// Global error listener
+window.addEventListener('error', function(event) {
+    alert(`UNCAUGHT ERROR: ${event.message}\nFile: ${event.filename}\nLine: ${event.lineno}`);
+});
 
 let container;
 let camera, scene, renderer;
@@ -42,9 +42,9 @@ function init() {
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    // AR Button - Removed 'hit-test' from requiredFeatures
+    // AR Button - Make DOM Overlay an OPTIONAL feature
     const arButton = ARButton.createButton(renderer, {
-        requiredFeatures: ['dom-overlay'],
+        optionalFeatures: ['dom-overlay'], // Changed from requiredFeatures
         domOverlay: { root: document.body }
     });
     document.body.appendChild(arButton);
@@ -142,7 +142,6 @@ function render(timestamp, frame) {
     const delta = clock.getDelta();
 
     if (renderer.xr.isPresenting) {
-        // Update bullet positions and check for collisions
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
             bullet.position.add(bullet.velocity.clone().multiplyScalar(delta));
