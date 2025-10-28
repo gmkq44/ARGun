@@ -1,210 +1,156 @@
-import * as THREE from 'three';
 
-let scene, camera, renderer, controller, gun;
-let projectiles = [];
+import * as THREE from 'three';
+import { ARButton } from 'three/addons/webxr/ARButton.js';
+
+let container;
+let camera, scene, renderer;
+let controller;
+let score = 0; // We'll keep score internally for now
 let ghosts = [];
-let particles = [];
-let score = 0;
+const bullets = [];
 const clock = new THREE.Clock();
+let ghostSpawnerInterval;
+
+init();
+animate();
 
 function init() {
+    container = document.getElementById('container');
+
+    // Scene
     scene = new THREE.Scene();
-    scene.background = null;
 
+    // Camera
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+    scene.add(camera); // Add camera to the scene
 
+    // 3D Crosshair
+    const crosshairGeometry = new THREE.RingGeometry(0.01, 0.015, 32);
+    const crosshairMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true });
+    const crosshair = new THREE.Mesh(crosshairGeometry, crosshairMaterial);
+    crosshair.position.z = -0.5; // Position it in front of the camera
+    camera.add(crosshair); // Attach crosshair to the camera
+
+    // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
+    // Light
     const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    gun = new THREE.Group();
+    // AR Button (most basic version)
+    document.body.appendChild(ARButton.createButton(renderer));
 
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.1, 0.4),
-        new THREE.MeshStandardMaterial({ color: 0x333333 })
-    );
-    body.position.z = -0.1;
-    gun.add(body);
+    // Controller for tap-to-shoot
+    controller = renderer.xr.getController(0);
+    controller.addEventListener('select', onSelect); // 'select' is the tap event
+    scene.add(controller);
 
-    const grip = new THREE.Mesh(
-        new THREE.BoxGeometry(0.1, 0.3, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x555555 })
-    );
-    grip.position.y = -0.1;
-    grip.rotation.x = -Math.PI / 4;
-    gun.add(grip);
+    // Start ghost spawning once the session starts
+    renderer.xr.addEventListener('sessionstart', spawnGhosts);
+    renderer.xr.addEventListener('sessionend', () => {
+        if (ghostSpawnerInterval) clearInterval(ghostSpawnerInterval);
+    });
 
-    const sight = new THREE.Mesh(
-        new THREE.BoxGeometry(0.02, 0.02, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0x999999 })
-    );
-    sight.position.y = 0.06;
-    sight.position.z = -0.28;
-    gun.add(sight);
-
-    gun.position.z = -0.5;
-    gun.position.y = -0.5;
-    scene.add(camera);
-
-    window.addEventListener('click', startAR);
+    window.addEventListener('resize', onWindowResize);
 }
 
-function shoot() {
-    const projectile = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    );
-
-    projectile.position.setFromMatrixPosition(controller.matrixWorld);
-    projectile.quaternion.setFromRotationMatrix(controller.matrixWorld);
-    projectile.velocity = new THREE.Vector3(0, 0, -1).applyQuaternion(projectile.quaternion);
-
-    projectiles.push(projectile);
-    scene.add(projectile);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function createGhost() {
-    const ghost = new THREE.Group();
+function onSelect() {
+    if (!renderer.xr.isPresenting) return;
 
-    const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.1, 0.6, 32, 1, true),
-        new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.9,
-            side: THREE.DoubleSide
-        })
+    const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.01, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 })
     );
-    ghost.add(body);
 
-    const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.2, 32, 32),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-    );
-    head.position.y = 0.3;
-    ghost.add(head);
+    // The controller's position/rotation is the user's device
+    bullet.position.setFromMatrixPosition(controller.matrixWorld);
+    bullet.quaternion.setFromRotationMatrix(controller.matrixWorld);
 
-    const eye = new THREE.Mesh(
-        new THREE.CircleGeometry(0.05, 32),
-        new THREE.MeshBasicMaterial({ color: 0x000000 })
-    );
-    eye.position.z = 0.18;
-    eye.position.x = -0.08;
-    eye.position.y = 0.35;
-    ghost.add(eye);
+    // Move the bullet forward from the controller's direction
+    bullet.velocity = new THREE.Vector3(0, 0, -1).applyQuaternion(bullet.quaternion).multiplyScalar(5);
+    scene.add(bullet);
+    bullets.push(bullet);
+}
 
-    const eye2 = eye.clone();
-    eye2.position.x = 0.08;
-    ghost.add(eye2);
+function spawnGhosts() {
+    const textureLoader = new THREE.TextureLoader();
+    const ghostTexture = textureLoader.load('ghost.png');
 
-    ghost.position.x = (Math.random() - 0.5) * 4;
-    ghost.position.y = (Math.random() - 0.5) * 2;
-    ghost.position.z = - (Math.random() * 5 + 2);
-    ghost.userData.bobOffset = Math.random() * Math.PI * 2;
-    scene.add(ghost);
-    ghosts.push(ghost);
+    ghostSpawnerInterval = setInterval(() => {
+        if (renderer.xr.isPresenting) {
+            const ghost = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.2, 0.2),
+                new THREE.MeshBasicMaterial({ map: ghostTexture, transparent: true })
+            );
+
+            // Position ghost in front of the user
+            const spawnPosition = new THREE.Vector3(
+                (Math.random() - 0.5) * 4,
+                (Math.random() - 0.5) * 2 + 1, // Spawn a bit higher
+                -2 - Math.random() * 2
+            );
+
+            // Get camera position and apply offset
+            const cameraPosition = new THREE.Vector3();
+            camera.getWorldPosition(cameraPosition);
+            spawnPosition.add(cameraPosition);
+
+            ghost.position.copy(spawnPosition);
+            ghost.lookAt(cameraPosition); // Make ghost face the camera
+
+            scene.add(ghost);
+            ghosts.push(ghost);
+        }
+    }, 2000);
+}
+
+function animate() {
+    renderer.setAnimationLoop(render);
 }
 
 function render() {
     const delta = clock.getDelta();
-    const elapsedTime = clock.getElapsedTime();
 
-    ghosts.forEach(ghost => {
-        ghost.position.y += Math.sin(elapsedTime * 2 + ghost.userData.bobOffset) * 0.001;
-    });
+    if (renderer.xr.isPresenting) {
+        // Update bullets
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const bullet = bullets[i];
+            bullet.position.add(bullet.velocity.clone().multiplyScalar(delta));
 
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-        const projectile = projectiles[i];
-        projectile.position.addScaledVector(projectile.velocity, delta * 5);
-
-        for (let j = ghosts.length - 1; j >= 0; j--) {
-            const ghost = ghosts[j];
-            if (projectile.position.distanceTo(ghost.position) < 0.2) {
-                createExplosion(ghost.position);
-                scene.remove(projectile);
-                projectiles.splice(i, 1);
-                scene.remove(ghost);
-                ghosts.splice(j, 1);
-                score++;
-                document.getElementById('score').textContent = `Score: ${score}`;
-                break;
+            // Remove distant bullets
+            if (bullet.position.length() > 20) {
+                scene.remove(bullet);
+                bullets.splice(i, 1);
+                continue;
             }
-        }
 
-        if (projectile.position.length() > 20) {
-            scene.remove(projectile);
-            projectiles.splice(i, 1);
-        }
-    }
-
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const particle = particles[i];
-        particle.position.addScaledVector(particle.velocity, delta);
-        particle.lifetime -= delta;
-        if (particle.lifetime <= 0) {
-            scene.remove(particle);
-            particles.splice(i, 1);
+            // Check for collision
+            for (let j = ghosts.length - 1; j >= 0; j--) {
+                const ghost = ghosts[j];
+                if (bullet.position.distanceTo(ghost.position) < 0.15) {
+                    scene.remove(bullet);
+                    bullets.splice(i, 1);
+                    scene.remove(ghost);
+                    ghosts.splice(j, 1);
+                    score++;
+                    // In the future, we can add a 3D score display here
+                    break;
+                }
+            }
         }
     }
 
     renderer.render(scene, camera);
 }
-
-async function startAR() {
-    window.removeEventListener('click', startAR);
-
-    if (!navigator.xr) {
-        alert("WebXR is not supported by this browser.");
-        return;
-    }
-
-    const sessionInit = {
-        optionalFeatures: ['dom-overlay'],
-        domOverlay: { root: document.querySelector('#ui-container') }
-    };
-
-    try {
-        const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
-        renderer.xr.setSession(session);
-
-        document.getElementById('start-message').style.display = 'none';
-        document.getElementById('score').style.display = 'block';
-        document.getElementById('crosshair').style.display = 'block';
-
-        controller = renderer.xr.getController(0);
-        controller.add(gun);
-        controller.addEventListener('select', shoot);
-        scene.add(controller);
-
-        renderer.setAnimationLoop(render);
-        setInterval(createGhost, 1000);
-    } catch (e) {
-        alert("Failed to start AR session: " + e.message);
-        console.error("Failed to start AR session:", e);
-    }
-}
-
-function createExplosion(position) {
-    for (let i = 0; i < 20; i++) {
-        const particle = new THREE.Mesh(
-            new THREE.SphereGeometry(0.02, 8, 8),
-            new THREE.MeshBasicMaterial({ color: 0xffffff })
-        );
-        particle.position.copy(position);
-        particle.velocity = new THREE.Vector3(
-            (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 2
-        );
-        particle.lifetime = Math.random() * 0.5 + 0.5;
-        particles.push(particle);
-        scene.add(particle);
-    }
-}
-
-init();

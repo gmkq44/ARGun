@@ -1,22 +1,30 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>AR Ghost Shooter</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
+	<head>
+		<title>AR Ghost Shooter</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
             }
-        }
-    </script>
-    <script type="module" src="main.js"></script>
-    <div id="ui-container">
-        <div id="start-message">Tap to Start</div>
-        <div id="score" style="display: none;">Score: 0</div>
-        <div id="crosshair" style="display: none;"></div>
-    </div>
-</body>
+            #container {
+                width: 100vw;
+                height: 100vh;
+            }
+        </style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.147.0/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.147.0/examples/jsm/"
+				}
+			}
+		</script>
+        <script type="module" src="main.js"></script>
+	</body>
 </html>
